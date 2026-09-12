@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Parqueadero App",
+    "slug": "parqueadero-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1F4E8C"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tuempresa.parqueadero"
+    },
+    "android": {
+      "package": "com.tuempresa.parqueadero"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "42e66a68-96bf-4e31-802b-25fb4c0ca813"
+      }
+    },
+    "owner": "rr93"
+  }
+}
