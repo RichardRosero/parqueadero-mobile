@@ -6,7 +6,7 @@ import { ejecutarOEncolar } from "../services/offlineQueue";
 import api from "../services/api";
 import { mostrarAlerta } from "../utils/alerta";
 import { simboloMoneda } from "../utils/moneda";
-import { obtenerImpresoraGuardada, guardarImpresora, buscarImpresorasEnRed, imprimirTicket } from "../services/impresora";
+import { imprimirTicket } from "../services/impresora";
 
 const METODOS = [
   { id: "impresion", label: "Imprimir ticket", costo: "Gratis" },
@@ -25,52 +25,6 @@ export default function EntradaScreen({ navigation }) {
   const [metodo, setMetodo] = useState("impresion");
   const [destino, setDestino] = useState("");
   const [cargando, setCargando] = useState(false);
-
-  // Impresora térmica WiFi de esta sede (ver services/impresora.js). Como
-  // usa DHCP no hay una IP fija: se busca en la red y se recuerda la que
-  // se elija, por sede.
-  const [impresoraIp, setImpresoraIp] = useState(null);
-  const [buscandoImpresora, setBuscandoImpresora] = useState(false);
-  const [progresoEscaneo, setProgresoEscaneo] = useState(null);
-  const [impresorasEncontradas, setImpresorasEncontradas] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      if (sesion?.parqueaderoId) setImpresoraIp(await obtenerImpresoraGuardada(sesion.parqueaderoId));
-    })();
-  }, [sesion?.parqueaderoId]);
-
-  async function handleBuscarImpresora() {
-    setBuscandoImpresora(true);
-    setImpresorasEncontradas(null);
-    setProgresoEscaneo({ revisadas: 0, total: 254 });
-    try {
-      const encontradas = await buscarImpresorasEnRed((revisadas, total) => setProgresoEscaneo({ revisadas, total }));
-      if (encontradas.length === 0) {
-        mostrarAlerta(
-          "No se encontró ninguna impresora",
-          "Verifica que la impresora esté encendida y conectada a esta misma red WiFi, luego intenta de nuevo."
-        );
-      } else if (encontradas.length === 1) {
-        await guardarImpresora(sesion.parqueaderoId, encontradas[0]);
-        setImpresoraIp(encontradas[0]);
-        mostrarAlerta("Impresora encontrada", `Se configuró la impresora en ${encontradas[0]}.`);
-      } else {
-        setImpresorasEncontradas(encontradas);
-      }
-    } catch (err) {
-      mostrarAlerta("Error", err.message || "No se pudo buscar la impresora");
-    } finally {
-      setBuscandoImpresora(false);
-      setProgresoEscaneo(null);
-    }
-  }
-
-  async function handleElegirImpresora(ip) {
-    await guardarImpresora(sesion.parqueaderoId, ip);
-    setImpresoraIp(ip);
-    setImpresorasEncontradas(null);
-  }
 
   const cargarTipos = useCallback(async () => {
     if (!sesion?.parqueaderoId) return;
@@ -108,7 +62,7 @@ export default function EntradaScreen({ navigation }) {
         mostrarAlerta("Entrada registrada", `Código: ${respuesta.codigo}`);
         if (metodo === "impresion") {
           try {
-            await imprimirTicket(sesion.parqueaderoId, {
+            await imprimirTicket({
               nombreSede: sedes.find((s) => s.id === sesion.parqueaderoId)?.nombre,
               placa,
               tipoVehiculo: tipos.find((t) => t.id === tipoVehiculoId)?.nombre,
@@ -159,36 +113,9 @@ export default function EntradaScreen({ navigation }) {
 
       {metodo === "impresion" && (
         <View style={styles.bloqueImpresora}>
-          {impresoraIp ? (
-            <>
-              <Text style={styles.nota}>Impresora configurada: {impresoraIp}</Text>
-              <TouchableOpacity onPress={handleBuscarImpresora} disabled={buscandoImpresora}>
-                <Text style={styles.linkImpresora}>
-                  {buscandoImpresora ? `Buscando... ${progresoEscaneo?.revisadas || 0}/${progresoEscaneo?.total || 254}` : "Buscar de nuevo"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={styles.nota}>Todavía no configuraste una impresora para esta sede.</Text>
-              <TouchableOpacity style={styles.botonSecundario} onPress={handleBuscarImpresora} disabled={buscandoImpresora}>
-                <Text style={styles.botonSecundarioTexto}>
-                  {buscandoImpresora ? `Buscando... ${progresoEscaneo?.revisadas || 0}/${progresoEscaneo?.total || 254}` : "Buscar impresora en la red"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {impresorasEncontradas && impresorasEncontradas.length > 1 && (
-            <>
-              <Text style={styles.notaChica}>Se encontraron varios dispositivos, elige cuál es tu impresora:</Text>
-              {impresorasEncontradas.map((ip) => (
-                <TouchableOpacity key={ip} style={styles.opcion} onPress={() => handleElegirImpresora(ip)}>
-                  <Text>{ip}</Text>
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
+          <Text style={styles.nota}>
+            Al confirmar, se abrirá el diálogo de impresión de tu celular para elegir la impresora (la misma que usas desde cualquier otra app).
+          </Text>
         </View>
       )}
 
@@ -215,8 +142,4 @@ const styles = StyleSheet.create({
   boton: { backgroundColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 16 },
   botonTexto: { color: "#fff", fontWeight: "bold" },
   bloqueImpresora: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 12, marginBottom: 12 },
-  notaChica: { color: "#666", fontSize: 13, marginTop: 8, marginBottom: 8 },
-  linkImpresora: { color: "#1F4E8C", fontWeight: "bold", marginTop: 4 },
-  botonSecundario: { borderWidth: 1, borderColor: "#1F4E8C", borderRadius: 8, padding: 12, alignItems: "center", marginTop: 8 },
-  botonSecundarioTexto: { color: "#1F4E8C", fontWeight: "bold" },
 });

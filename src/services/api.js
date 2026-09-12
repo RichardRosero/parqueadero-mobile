@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // TODO: cambia esto por la URL real de tu backend cuando lo despliegues
 // (ej. Railway, Render, un VPS propio). Mientras pruebas en local, usa la
 // IP de tu computadora en la red WiFi (no "localhost", el celular no la ve).
-export const API_BASE_URL = "http://localhost:3000";
+export const API_BASE_URL = "http://192.168.100.27:3000";
 
 const api = axios.create({ baseURL: API_BASE_URL, timeout: 8000 });
 
