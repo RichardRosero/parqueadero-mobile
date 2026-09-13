@@ -1,6 +1,6 @@
 // screens/EntradaScreen.js — seccion 7: registro de entrada + metodo de entrega
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { ejecutarOEncolar } from "../services/offlineQueue";
 import api from "../services/api";
@@ -11,7 +11,6 @@ import { imprimirTicket } from "../services/impresora";
 const METODOS = [
   { id: "impresion", label: "Imprimir ticket", costo: "Gratis" },
   { id: "telegram", label: "Telegram", costo: "Gratis" },
-  { id: "link", label: "Enlace web", costo: "Gratis" },
   { id: "whatsapp", label: "WhatsApp", costo: "Con recargo" },
   { id: "sms", label: "SMS", costo: "Con recargo" },
 ];
@@ -25,6 +24,11 @@ export default function EntradaScreen({ navigation }) {
   const [metodo, setMetodo] = useState("impresion");
   const [destino, setDestino] = useState("");
   const [cargando, setCargando] = useState(false);
+
+  // Cuando el metodo es Telegram, en vez de volver atras de una se muestra
+  // este QR para que el cliente lo escanee (ver services/notificaciones/telegram.js
+  // para el porque: un bot no le puede escribir primero a nadie).
+  const [qrTelegram, setQrTelegram] = useState(null);
 
   const cargarTipos = useCallback(async () => {
     if (!sesion?.parqueaderoId) return;
@@ -58,28 +62,58 @@ export default function EntradaScreen({ navigation }) {
 
       if (encolado) {
         mostrarAlerta("Sin conexión", "El registro se guardó localmente y se enviará cuando vuelva la señal.");
-      } else {
-        mostrarAlerta("Entrada registrada", `Código: ${respuesta.codigo}`);
-        if (metodo === "impresion") {
-          try {
-            await imprimirTicket({
-              nombreSede: sedes.find((s) => s.id === sesion.parqueaderoId)?.nombre,
-              placa,
-              tipoVehiculo: tipos.find((t) => t.id === tipoVehiculoId)?.nombre,
-              codigo: respuesta.codigo,
-              horaEntrada: new Date().toISOString(),
-            });
-          } catch (err) {
-            mostrarAlerta("No se pudo imprimir", `${err.message} El registro de entrada ya quedó guardado de todas formas.`);
-          }
-        }
+        navigation.goBack();
+        return;
       }
-      navigation.goBack();
+
+      mostrarAlerta("Entrada registrada", `Código: ${respuesta.codigo}`);
+
+      if (metodo === "impresion") {
+        try {
+          await imprimirTicket({
+            nombreSede: sedes.find((s) => s.id === sesion.parqueaderoId)?.nombre,
+            placa,
+            tipoVehiculo: tipos.find((t) => t.id === tipoVehiculoId)?.nombre,
+            codigo: respuesta.codigo,
+            horaEntrada: new Date().toISOString(),
+          });
+        } catch (err) {
+          mostrarAlerta("No se pudo imprimir", `${err.message} El registro de entrada ya quedó guardado de todas formas.`);
+        }
+        navigation.goBack();
+      } else if (metodo === "telegram") {
+        if (respuesta.notificacion?.qrTelegram) {
+          // Se queda en esta pantalla mostrando el QR en vez de volver atras.
+          setQrTelegram(respuesta.notificacion.qrTelegram);
+        } else {
+          mostrarAlerta(
+            "Telegram no está configurado",
+            "Falta configurar el bot de Telegram del negocio. El registro de entrada ya quedó guardado igual."
+          );
+          navigation.goBack();
+        }
+      } else {
+        navigation.goBack();
+      }
     } catch (err) {
       mostrarAlerta("Error", err.response?.data?.error || "No se pudo registrar la entrada");
     } finally {
       setCargando(false);
     }
+  }
+
+  if (qrTelegram) {
+    return (
+      <View style={styles.containerQr}>
+        <Text style={styles.titulo}>Recibir ticket por Telegram</Text>
+        <Text style={styles.nota}>Pídele al cliente que escanee este código con la cámara de su celular.</Text>
+        <Image source={{ uri: qrTelegram }} style={styles.imagenQr} />
+        <Text style={styles.nota}>Al tocar "Iniciar" en Telegram, el cliente recibe su ticket automáticamente.</Text>
+        <TouchableOpacity style={styles.boton} onPress={() => navigation.goBack()}>
+          <Text style={styles.botonTexto}>Listo</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -119,7 +153,13 @@ export default function EntradaScreen({ navigation }) {
         </View>
       )}
 
-      {(metodo === "whatsapp" || metodo === "sms" || metodo === "telegram") && (
+      {metodo === "telegram" && (
+        <View style={styles.bloqueImpresora}>
+          <Text style={styles.nota}>Al confirmar, aparece un código QR para que el cliente lo escanee y reciba su ticket por Telegram.</Text>
+        </View>
+      )}
+
+      {(metodo === "whatsapp" || metodo === "sms") && (
         <TextInput style={styles.input} placeholder="Número del cliente (con código de país)" value={destino} onChangeText={setDestino} keyboardType="phone-pad" />
       )}
 
@@ -132,14 +172,16 @@ export default function EntradaScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { padding: 20, backgroundColor: "#fff", flexGrow: 1 },
-  titulo: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", marginBottom: 16 },
+  containerQr: { flex: 1, padding: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  titulo: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", marginBottom: 16, textAlign: "center" },
   subtitulo: { fontWeight: "bold", marginTop: 8, marginBottom: 8 },
-  nota: { color: "#666", marginBottom: 8 },
+  nota: { color: "#666", marginBottom: 8, textAlign: "center" },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12 },
   opcion: { flexDirection: "row", justifyContent: "space-between", padding: 12, borderWidth: 1, borderColor: "#ddd", borderRadius: 8, marginBottom: 8 },
   opcionSeleccionada: { borderColor: "#1F4E8C", backgroundColor: "#DCE8F7" },
   costo: { color: "#666", fontSize: 12 },
-  boton: { backgroundColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 16 },
+  boton: { backgroundColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 16, minWidth: 160 },
   botonTexto: { color: "#fff", fontWeight: "bold" },
   bloqueImpresora: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 12, marginBottom: 12 },
+  imagenQr: { width: 220, height: 220, marginVertical: 20 },
 });

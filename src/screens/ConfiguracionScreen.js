@@ -30,6 +30,11 @@ export default function ConfiguracionScreen({ navigation }) {
   const [mostrarEdicionSede, setMostrarEdicionSede] = useState(false);
   const [eliminandoSede, setEliminandoSede] = useState(false);
 
+  // Multa por perdida de ticket/celular del cliente (se cobra junto con la
+  // tarifa normal al usar el boton de panico con ese motivo, ver panico.js).
+  const [multaPerdidaTicket, setMultaPerdidaTicket] = useState("");
+  const [guardandoMulta, setGuardandoMulta] = useState(false);
+
   // Tipos de vehiculo de la sede que se esta creando (aun no existen en el
   // backend). Se precargan los 3 por defecto, editables, y se pueden
   // agregar hasta 2 mas o quitar los que no apliquen. "Crear sede" queda
@@ -41,6 +46,10 @@ export default function ConfiguracionScreen({ navigation }) {
 
   const sedeActiva = sedes.find((s) => s.id === sesion?.parqueaderoId);
   const simbolo = simboloMoneda(sedeActiva?.moneda);
+
+  useEffect(() => {
+    setMultaPerdidaTicket(sedeActiva ? String(sedeActiva.monto_multa_perdida_ticket ?? 0) : "");
+  }, [sedeActiva?.id, sedeActiva?.monto_multa_perdida_ticket]);
 
   const [tipos, setTipos] = useState([]);
   const [editandoId, setEditandoId] = useState(null); // id del tipo que se esta editando, o null si es uno nuevo
@@ -259,6 +268,23 @@ export default function ConfiguracionScreen({ navigation }) {
     }
   }
 
+  async function handleGuardarMulta() {
+    if (!sedeActiva) return;
+    const valor = parseFloat(multaPerdidaTicket);
+    if (isNaN(valor) || valor < 0) return mostrarAlerta("La multa debe ser un número válido (0 o más)");
+
+    setGuardandoMulta(true);
+    try {
+      await api.patch(`/parqueaderos/${sedeActiva.id}/config`, { monto_multa_perdida_ticket: valor });
+      await cargarSedes();
+      mostrarAlerta("Guardado", "Se actualizó la multa por pérdida de ticket.");
+    } catch (err) {
+      mostrarAlerta("Error", err.response?.data?.error || "No se pudo guardar la multa");
+    } finally {
+      setGuardandoMulta(false);
+    }
+  }
+
   async function handleEliminarSede() {
     if (!sedeActiva) return;
     const confirmado = await confirmarAccion(
@@ -457,6 +483,22 @@ export default function ConfiguracionScreen({ navigation }) {
                 <Text style={sedeActiva.moneda === m.codigo ? styles.chipTextoSeleccionado : styles.chipTexto}>{m.simbolo} {m.codigo}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+
+          <Text style={[styles.notaChica, styles.espacioArriba]}>
+            Multa por pérdida de ticket/celular del cliente (se cobra junto con la tarifa normal al usar el botón de pánico con ese motivo; 0 = sin multa):
+          </Text>
+          <View style={styles.filaTipoStaged}>
+            <TextInput
+              style={[styles.input, styles.inputTarifaStaged]}
+              placeholder="0"
+              value={multaPerdidaTicket}
+              onChangeText={setMultaPerdidaTicket}
+              keyboardType="decimal-pad"
+            />
+            <TouchableOpacity style={styles.botonAgregar} onPress={handleGuardarMulta} disabled={guardandoMulta}>
+              <Text style={styles.linkEditar}>{guardandoMulta ? "..." : "Guardar"}</Text>
+            </TouchableOpacity>
           </View>
 
           <Text style={[styles.subtitulo, styles.espacioArriba]}>Tipos de vehículo de la sede activa</Text>

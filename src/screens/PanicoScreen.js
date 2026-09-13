@@ -2,30 +2,38 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { simboloMoneda } from "../utils/moneda";
 import api from "../services/api";
 import { mostrarAlerta } from "../utils/alerta";
 
 const MOTIVOS = ["Pérdida de ticket/celular del cliente", "Fallo del sistema"];
 
 export default function PanicoScreen({ navigation }) {
-  const { sesion } = useAuth();
-  const [codigo, setCodigo] = useState("");
+  const { sesion, sedes } = useAuth();
+  const simbolo = simboloMoneda(sesion?.moneda || sedes.find((s) => s.id === sesion?.parqueaderoId)?.moneda);
   const [motivo, setMotivo] = useState(MOTIVOS[0]);
   const [placa, setPlaca] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [resultado, setResultado] = useState(null);
 
   async function handleConfirmar() {
-    if (!codigo || !placa) return mostrarAlerta("Faltan datos", "Código y placa son obligatorios.");
+    if (!placa) return mostrarAlerta("Falta la placa", "Escribe la placa del vehículo.");
     setCargando(true);
+    setResultado(null);
     try {
-      await api.post("/panico", {
+      const res = await api.post("/panico", {
         parqueadero_id: sesion.parqueaderoId,
-        codigo_ingresado: codigo,
         motivo,
         placa,
       });
-      mostrarAlerta("Registrado", "El uso del botón de pánico quedó guardado para auditoría.");
-      navigation.goBack();
+      setResultado(res.data);
+      setPlaca("");
+      mostrarAlerta(
+        "Registrado",
+        res.data.registroEncontrado
+          ? "El vehículo quedó registrado como salido y esto quedó guardado para auditoría."
+          : "No había un registro de esa placa (posible falla del sistema), pero quedó guardado para auditoría."
+      );
     } catch (err) {
       mostrarAlerta("Error", err.response?.data?.error || "No se pudo registrar");
     } finally {
@@ -36,9 +44,8 @@ export default function PanicoScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>⚠ Botón de pánico</Text>
-      <Text style={styles.nota}>Usa esto solo si el sistema falló y tuviste que dejar salir un vehículo sin validación normal.</Text>
+      <Text style={styles.nota}>Usa esto solo si el sistema falló o el cliente perdió su ticket, y tuviste que dejar salir el vehículo sin la validación normal.</Text>
 
-      <TextInput style={styles.input} placeholder="Código generado por el sistema" value={codigo} onChangeText={setCodigo} />
       <TextInput style={styles.input} placeholder="Placa del vehículo" value={placa} onChangeText={(t) => setPlaca(t.toUpperCase())} autoCapitalize="characters" />
 
       <Text style={styles.subtitulo}>Motivo:</Text>
@@ -51,6 +58,13 @@ export default function PanicoScreen({ navigation }) {
       <TouchableOpacity style={styles.boton} onPress={handleConfirmar} disabled={cargando}>
         <Text style={styles.botonTexto}>{cargando ? "Guardando..." : "Confirmar registro de pánico"}</Text>
       </TouchableOpacity>
+
+      {resultado && resultado.valorCobrado != null && (
+        <View style={styles.resultado}>
+          <Text style={styles.valorGrande}>{simbolo}{resultado.valorCobrado}</Text>
+          <Text style={styles.nota}>Valor cobrado (incluye multa si aplica)</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -65,4 +79,6 @@ const styles = StyleSheet.create({
   opcionSeleccionada: { borderColor: "#B00020", backgroundColor: "#FBE3E6" },
   boton: { backgroundColor: "#B00020", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 16 },
   botonTexto: { color: "#fff", fontWeight: "bold" },
+  resultado: { marginTop: 24, alignItems: "center", padding: 16, backgroundColor: "#FBE3E6", borderRadius: 8 },
+  valorGrande: { fontSize: 32, fontWeight: "bold", color: "#B00020" },
 });
