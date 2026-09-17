@@ -13,13 +13,14 @@
       "bundleIdentifier": "com.rr93.parqueadero"
     },
     "android": {
-      "package": "com.rr93.parqueadero"
+      "package": "com.rr93.parqueadero",
+      "versionCode": 2
     },
     "extra": {
       "eas": {
         "projectId": "42e66a68-96bf-4e31-802b-25fb4c0ca813"
       },
-      "googleWebClientId": "PENDIENTE_PEGAR_CLIENT_ID_WEB"
+      "googleWebClientId": "98425662892-c1gpqtrd45qer3schms8h3j0jhtgadoa.apps.googleusercontent.com"
     },
     "owner": "rr93"
   }
