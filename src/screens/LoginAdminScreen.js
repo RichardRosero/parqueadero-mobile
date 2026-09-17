@@ -1,19 +1,20 @@
 // screens/LoginAdminScreen.js
-// TODO real: reemplazar el formulario de email/password (solo para pruebas
-// locales) por los botones nativos "Continuar con Google" / "Continuar con
-// Apple" usando expo-auth-session o @react-native-google-signin/google-signin
-// + expo-apple-authentication. Ver seccion 3 del documento.
+// Login real con Google (ver src/services/googleAuth.js) + el formulario de
+// email/password que sigue existiendo SOLO para pruebas locales (la cuenta
+// demo admin@demo.com, ver CLAUDE.md — nunca se debe eliminar).
 
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { mostrarAlerta } from "../utils/alerta";
+import { iniciarSesionGoogle } from "../services/googleAuth";
 
 export default function LoginAdminScreen({ navigation }) {
-  const { loginAdmin } = useAuth();
+  const { loginAdmin, loginAdminGoogle } = useAuth();
   const [email, setEmail] = useState("admin@demo.com");
   const [password, setPassword] = useState("demo1234");
   const [cargando, setCargando] = useState(false);
+  const [cargandoGoogle, setCargandoGoogle] = useState(false);
 
   async function handleLogin() {
     setCargando(true);
@@ -26,12 +27,32 @@ export default function LoginAdminScreen({ navigation }) {
     }
   }
 
+  async function handleLoginGoogle() {
+    setCargandoGoogle(true);
+    try {
+      const idToken = await iniciarSesionGoogle();
+      if (!idToken) return; // el usuario cerró el selector de cuenta de Google sin elegir ninguna
+      await loginAdminGoogle(idToken);
+    } catch (err) {
+      mostrarAlerta("Error", err.response?.data?.error || "No se pudo iniciar sesión con Google");
+    } finally {
+      setCargandoGoogle(false);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Administrador</Text>
-      <Text style={styles.nota}>
-        Version de prueba: login con email/password. En produccion aqui van los botones de Google e iCloud.
-      </Text>
+
+      <TouchableOpacity style={styles.botonGoogle} onPress={handleLoginGoogle} disabled={cargandoGoogle}>
+        <Text style={styles.botonGoogleTexto}>{cargandoGoogle ? "Conectando..." : "Continuar con Google"}</Text>
+      </TouchableOpacity>
+
+      <View style={styles.divisor}>
+        <View style={styles.lineaDivisor} />
+        <Text style={styles.notaDivisor}>o, solo para pruebas</Text>
+        <View style={styles.lineaDivisor} />
+      </View>
 
       <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
@@ -49,8 +70,12 @@ export default function LoginAdminScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
-  titulo: { fontSize: 26, fontWeight: "bold", color: "#1F4E8C", marginBottom: 8 },
-  nota: { color: "#666", marginBottom: 24 },
+  titulo: { fontSize: 26, fontWeight: "bold", color: "#1F4E8C", marginBottom: 24, textAlign: "center" },
+  botonGoogle: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 14, alignItems: "center", backgroundColor: "#fff" },
+  botonGoogleTexto: { color: "#333", fontWeight: "bold" },
+  divisor: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
+  lineaDivisor: { flex: 1, height: 1, backgroundColor: "#ddd" },
+  notaDivisor: { color: "#999", fontSize: 12, marginHorizontal: 8 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12 },
   boton: { backgroundColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
   botonTexto: { color: "#fff", fontWeight: "bold" },

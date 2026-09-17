@@ -52,6 +52,17 @@ export function AuthProvider({ children }) {
     await cargarSedes(datos);
   }
 
+  // Login (y registro automatico, si es la primera vez con ese email) del
+  // administrador con Google. idToken ya viene validado del lado del
+  // celular por el SDK de Google; el backend lo vuelve a validar contra
+  // Google antes de confiar en el (ver routes/auth.js, /admin/google).
+  async function loginAdminGoogle(idToken) {
+    const res = await api.post("/auth/admin/google", { idToken });
+    const datos = await guardarSesion({ token: res.data.token, rol: "admin", nombre: res.data.negocio.nombre, parqueaderoId: null });
+    await cachearEstadoLicencia({ activa: true, fechaExpiracion: null });
+    await cargarSedes(datos);
+  }
+
   // Carga las sedes del negocio (admin ve todas las suyas, ver seccion 6).
   // Si solo tiene una, la selecciona automaticamente: la mayoria de los
   // planes solo permiten una sede de todos modos.
@@ -139,7 +150,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ sesion, sedes, sedesListas, licenciaValida, cargando, loginAdmin, loginGuardia, logout, cargarSedes, seleccionarSede }}>
+    <AuthContext.Provider value={{ sesion, sedes, sedesListas, licenciaValida, cargando, loginAdmin, loginAdminGoogle, loginGuardia, logout, cargarSedes, seleccionarSede }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,10 +1,25 @@
 // screens/SalidaScreen.js — seccion 7: registro de salida
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from "react-native";
 import api from "../services/api";
 import { mostrarAlerta } from "../utils/alerta";
 import { simboloMoneda } from "../utils/moneda";
 import { useAuth } from "../context/AuthContext";
+import { imprimirTicketSalida } from "../services/impresora";
+
+const METODOS = [
+  { id: "impresion", label: "Imprimir ticket", costo: "Gratis" },
+  { id: "telegram", label: "Telegram", costo: "Gratis" },
+  { id: "whatsapp", label: "WhatsApp", costo: "Con recargo" },
+  { id: "sms", label: "SMS", costo: "Con recargo" },
+  { id: "ninguno", label: "No enviar nada", costo: "" },
+];
+
+function formatearTiempo(minutosTotales) {
+  const horas = Math.floor(minutosTotales / 60);
+  const mins = minutosTotales % 60;
+  return `${horas}h ${mins}min`;
+}
 
 export default function SalidaScreen({ navigation }) {
   const { sesion, sedes } = useAuth();
@@ -15,6 +30,9 @@ export default function SalidaScreen({ navigation }) {
   const [calculando, setCalculando] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
   const [salidaConfirmada, setSalidaConfirmada] = useState(false);
+  const [metodo, setMetodo] = useState("ninguno");
+  const [destino, setDestino] = useState("");
+  const [qrTelegram, setQrTelegram] = useState(null);
 
   async function handleCalcular() {
     if (!placa) return mostrarAlerta("Falta la placa");
@@ -22,6 +40,7 @@ export default function SalidaScreen({ navigation }) {
     setCalculando(true);
     setResultado(null);
     setSalidaConfirmada(false);
+    setQrTelegram(null);
     try {
       const res = await api.post("/registros/salida/calcular", {
         parqueadero_id: sesion.parqueaderoId,
@@ -46,10 +65,34 @@ export default function SalidaScreen({ navigation }) {
         parqueadero_id: sesion.parqueaderoId,
         placa,
         codigo,
-        metodo_notificacion_ticket: "ninguno",
+        metodo_notificacion_ticket: metodo,
+        destino_notificacion: destino,
       });
       setResultado(res.data);
       setSalidaConfirmada(true);
+
+      if (metodo === "impresion") {
+        try {
+          await imprimirTicketSalida({
+            nombreSede: sedes.find((s) => s.id === sesion.parqueaderoId)?.nombre,
+            placa,
+            horaEntrada: res.data.horaEntrada,
+            horaSalida: res.data.horaSalida,
+            tiempoTexto: formatearTiempo(res.data.minutosTotales),
+            valor: res.data.total,
+            simbolo,
+          });
+        } catch (err) {
+          mostrarAlerta("No se pudo imprimir", `${err.message} La salida ya quedó registrada de todas formas.`);
+        }
+      } else if (metodo === "telegram") {
+        if (res.data.notificacion?.qrTelegram) {
+          setQrTelegram(res.data.notificacion.qrTelegram);
+        } else {
+          mostrarAlerta("Telegram no está configurado", "Falta configurar el bot de Telegram del negocio. La salida ya quedó registrada igual.");
+        }
+      }
+
       mostrarAlerta("Salida registrada", "El vehículo ya quedó registrado como salido.");
     } catch (err) {
       mostrarAlerta("Error", err.response?.data?.error || "No se pudo registrar la salida");
@@ -63,10 +106,13 @@ export default function SalidaScreen({ navigation }) {
     setCodigo("");
     setResultado(null);
     setSalidaConfirmada(false);
+    setMetodo("ninguno");
+    setDestino("");
+    setQrTelegram(null);
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Registrar salida</Text>
 
       <TextInput style={styles.input} placeholder="Placa" value={placa} onChangeText={(t) => setPlaca(t.toUpperCase())} autoCapitalize="characters" editable={!salidaConfirmada} />
@@ -83,16 +129,41 @@ export default function SalidaScreen({ navigation }) {
           <Text style={styles.valorGrande}>{simbolo}{resultado.total}</Text>
           <Text style={styles.nota}>{resultado.detalle}</Text>
           {resultado.recargo > 0 && <Text style={styles.nota}>Incluye recargo de notificación: {simbolo}{resultado.recargo}</Text>}
+          <View style={styles.divisorResultado} />
+          <Text style={styles.notaTiempo}>Entrada: {new Date(resultado.horaEntrada).toLocaleString()}</Text>
+          <Text style={styles.notaTiempo}>Salida: {new Date(resultado.horaSalida).toLocaleString()}</Text>
+          <Text style={styles.notaTiempo}>Tiempo total: {formatearTiempo(resultado.minutosTotales)}</Text>
         </View>
       )}
 
       {resultado && !salidaConfirmada && (
         <>
           <Text style={styles.notaAviso}>Cobra el valor por fuera de la app; cuando el pago esté confirmado, toca "Salir".</Text>
+
+          <Text style={styles.subtitulo}>Entregar comprobante de salida por:</Text>
+          {METODOS.map((m) => (
+            <TouchableOpacity key={m.id} style={[styles.opcion, metodo === m.id && styles.opcionSeleccionada]} onPress={() => setMetodo(m.id)}>
+              <Text>{m.label}</Text>
+              <Text style={styles.costo}>{m.costo}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {(metodo === "whatsapp" || metodo === "sms") && (
+            <TextInput style={styles.input} placeholder="Número del cliente (con código de país)" value={destino} onChangeText={setDestino} keyboardType="phone-pad" />
+          )}
+
           <TouchableOpacity style={styles.botonSalir} onPress={handleSalir} disabled={saliendo}>
             <Text style={styles.botonTexto}>{saliendo ? "Registrando..." : "Salir"}</Text>
           </TouchableOpacity>
         </>
+      )}
+
+      {qrTelegram && (
+        <View style={styles.bloqueQr}>
+          <Text style={styles.subtitulo}>Recibir comprobante por Telegram</Text>
+          <Text style={styles.nota}>Pídele al cliente que escanee este código con la cámara de su celular.</Text>
+          <Image source={{ uri: qrTelegram }} style={styles.imagenQr} />
+        </View>
       )}
 
       {salidaConfirmada && (
@@ -100,13 +171,14 @@ export default function SalidaScreen({ navigation }) {
           <Text style={styles.botonSecundarioTexto}>Registrar otra salida</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
+  container: { flexGrow: 1, padding: 20, backgroundColor: "#fff" },
   titulo: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", marginBottom: 16 },
+  subtitulo: { fontWeight: "bold", marginTop: 16, marginBottom: 8 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12 },
   boton: { backgroundColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center" },
   botonTexto: { color: "#fff", fontWeight: "bold" },
@@ -115,6 +187,13 @@ const styles = StyleSheet.create({
   botonSecundarioTexto: { color: "#1F4E8C", fontWeight: "bold" },
   resultado: { marginTop: 24, alignItems: "center", padding: 16, backgroundColor: "#DCE8F7", borderRadius: 8 },
   valorGrande: { fontSize: 36, fontWeight: "bold", color: "#1F4E8C" },
-  nota: { color: "#444", marginTop: 4 },
+  nota: { color: "#444", marginTop: 4, textAlign: "center" },
   notaAviso: { color: "#666", fontSize: 13, marginTop: 12, textAlign: "center" },
+  divisorResultado: { borderTopWidth: 1, borderColor: "#c3d5ec", marginVertical: 8, width: "100%" },
+  notaTiempo: { color: "#1F4E8C", fontSize: 13 },
+  opcion: { flexDirection: "row", justifyContent: "space-between", padding: 12, borderWidth: 1, borderColor: "#ddd", borderRadius: 8, marginBottom: 8 },
+  opcionSeleccionada: { borderColor: "#1F4E8C", backgroundColor: "#DCE8F7" },
+  costo: { color: "#666", fontSize: 12 },
+  bloqueQr: { alignItems: "center", marginTop: 20 },
+  imagenQr: { width: 200, height: 200, marginVertical: 16 },
 });

@@ -10,15 +10,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tuempresa.parqueadero"
+      "bundleIdentifier": "com.rr93.parqueadero"
     },
     "android": {
-      "package": "com.tuempresa.parqueadero"
+      "package": "com.rr93.parqueadero"
     },
     "extra": {
       "eas": {
         "projectId": "42e66a68-96bf-4e31-802b-25fb4c0ca813"
-      }
+      },
+      "googleWebClientId": "PENDIENTE_PEGAR_CLIENT_ID_WEB"
     },
     "owner": "rr93"
   }

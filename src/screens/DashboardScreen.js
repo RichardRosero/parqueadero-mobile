@@ -8,6 +8,7 @@ export default function DashboardScreen({ navigation }) {
   const { sesion, sedes, logout, licenciaValida, seleccionarSede } = useAuth();
   const [vencimientos, setVencimientos] = useState([]);
   const [refrescando, setRefrescando] = useState(false);
+  const [ocupacion, setOcupacion] = useState(null);
   const esAdmin = sesion?.rol === "admin";
   const sedeActiva = sedes.find((s) => s.id === sesion?.parqueaderoId);
 
@@ -22,6 +23,25 @@ export default function DashboardScreen({ navigation }) {
   }, [sesion]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Ocupacion (total/ocupados/disponibles) de la sede activa, en vivo: se
+  // consulta al entrar y luego cada 10s mientras esta pantalla este abierta,
+  // asi el operador no tiene que salir y volver para ver el dato al dia.
+  const cargarOcupacion = useCallback(async () => {
+    if (!sesion?.parqueaderoId) return setOcupacion(null);
+    try {
+      const res = await api.get(`/parqueaderos/${sesion.parqueaderoId}/ocupacion`);
+      setOcupacion(res.data);
+    } catch {
+      // sin conexion: se queda con lo ultimo cargado
+    }
+  }, [sesion?.parqueaderoId]);
+
+  useEffect(() => {
+    cargarOcupacion();
+    const intervalo = setInterval(cargarOcupacion, 10000);
+    return () => clearInterval(intervalo);
+  }, [cargarOcupacion]);
 
   if (!licenciaValida) {
     return (
@@ -83,6 +103,28 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
+      {sesion?.parqueaderoId && ocupacion && (
+        <View style={styles.tarjetaOcupacion}>
+          <View style={styles.filaOcupacion}>
+            <Text style={styles.valorOcupacion}>{ocupacion.total ?? "—"}</Text>
+            <Text style={styles.etiquetaOcupacion}>Total</Text>
+          </View>
+          <View style={styles.filaOcupacion}>
+            <Text style={styles.valorOcupacion}>{ocupacion.ocupados}</Text>
+            <Text style={styles.etiquetaOcupacion}>Ocupados</Text>
+          </View>
+          <View style={styles.filaOcupacion}>
+            <Text style={styles.valorOcupacion}>{ocupacion.disponibles ?? "—"}</Text>
+            <Text style={styles.etiquetaOcupacion}>Disponibles</Text>
+          </View>
+        </View>
+      )}
+      {sesion?.parqueaderoId && ocupacion && ocupacion.total == null && (
+        <Text style={styles.notaOcupacion}>
+          Configura los puestos totales de esta sede en Configuración para ver disponibles.
+        </Text>
+      )}
+
       <View style={styles.accionesFila}>
         <TouchableOpacity style={[styles.botonAccion, !sesion?.parqueaderoId && styles.botonDeshabilitado]} disabled={!sesion?.parqueaderoId} onPress={() => navigation.navigate("Entrada")}>
           <Text style={styles.botonAccionTexto}>Registrar entrada</Text>
@@ -119,7 +161,7 @@ export default function DashboardScreen({ navigation }) {
       <FlatList
         data={vencimientos}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={async () => { setRefrescando(true); await cargar(); setRefrescando(false); }} />}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={async () => { setRefrescando(true); await Promise.all([cargar(), cargarOcupacion()]); setRefrescando(false); }} />}
         ListEmptyComponent={<Text style={styles.nota}>{sesion?.parqueaderoId ? "Nada por vencer, todo al día." : "Selecciona una sede para ver esta información."}</Text>}
         renderItem={({ item }) => (
           <View style={styles.filaVencimiento}>
@@ -146,6 +188,11 @@ const styles = StyleSheet.create({
   chipSedeSeleccionado: { backgroundColor: "#1F4E8C" },
   chipSedeTexto: { color: "#1F4E8C" },
   chipSedeTextoSeleccionado: { color: "#fff", fontWeight: "bold" },
+  tarjetaOcupacion: { flexDirection: "row", backgroundColor: "#F2F2F2", borderRadius: 8, marginBottom: 4, paddingVertical: 12 },
+  filaOcupacion: { flex: 1, alignItems: "center" },
+  valorOcupacion: { fontSize: 20, fontWeight: "bold", color: "#1F4E8C" },
+  etiquetaOcupacion: { color: "#666", fontSize: 12 },
+  notaOcupacion: { color: "#999", fontSize: 12, textAlign: "center", marginBottom: 12 },
   accionesFila: { flexDirection: "row", gap: 12, marginBottom: 12 },
   botonAccion: { flex: 1, backgroundColor: "#1F4E8C", borderRadius: 8, padding: 16, alignItems: "center" },
   botonDeshabilitado: { opacity: 0.4 },

@@ -43,3 +43,29 @@ export async function imprimirTicket(datosTicket) {
   const html = construirHtmlTicket(datosTicket);
   await Print.printAsync({ html });
 }
+
+function construirHtmlTicketSalida({ nombreSede, placa, horaEntrada, horaSalida, tiempoTexto, valor, simbolo }) {
+  return `
+    <html>
+      <head><meta charset="utf-8" /></head>
+      <body style="font-family: -apple-system, Helvetica, Arial, sans-serif; text-align: center; padding: 32px;">
+        <h2 style="margin-bottom: 4px;">${nombreSede || "Parqueadero"}</h2>
+        <hr />
+        <div style="text-align: left; font-size: 16px; line-height: 1.6;">
+          <strong>Placa:</strong> ${placa}<br/>
+          <strong>Entrada:</strong> ${new Date(horaEntrada).toLocaleString()}<br/>
+          <strong>Salida:</strong> ${new Date(horaSalida).toLocaleString()}<br/>
+          <strong>Tiempo total:</strong> ${tiempoTexto}
+        </div>
+        <hr />
+        <p style="font-size: 32px; font-weight: bold; margin-top: 24px;">${simbolo || "$"}${valor}</p>
+      </body>
+    </html>
+  `;
+}
+
+// Ticket de salida: entrada, salida, tiempo total y valor a pagar (seccion 7).
+export async function imprimirTicketSalida(datosTicket) {
+  const html = construirHtmlTicketSalida(datosTicket);
+  await Print.printAsync({ html });
+}

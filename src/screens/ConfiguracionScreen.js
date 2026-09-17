@@ -23,6 +23,7 @@ export default function ConfiguracionScreen({ navigation }) {
   const [mostrarFormularioSede, setMostrarFormularioSede] = useState(() => sedes.length === 0);
   const [nombreSede, setNombreSede] = useState("");
   const [monedaNuevaSede, setMonedaNuevaSede] = useState("USD");
+  const [puestosNuevaSede, setPuestosNuevaSede] = useState("");
   const [creandoSede, setCreandoSede] = useState(false);
   const [cambiandoMoneda, setCambiandoMoneda] = useState(false);
   // La edicion de la sede activa (moneda, tipos, eliminar) queda oculta
@@ -34,6 +35,11 @@ export default function ConfiguracionScreen({ navigation }) {
   // tarifa normal al usar el boton de panico con ese motivo, ver panico.js).
   const [multaPerdidaTicket, setMultaPerdidaTicket] = useState("");
   const [guardandoMulta, setGuardandoMulta] = useState(false);
+
+  // Puestos totales de la sede activa (capacidad_maxima). Con esto el
+  // Dashboard puede mostrar ocupados/disponibles en tiempo real.
+  const [capacidadMaxima, setCapacidadMaxima] = useState("");
+  const [guardandoCapacidad, setGuardandoCapacidad] = useState(false);
 
   // Tipos de vehiculo de la sede que se esta creando (aun no existen en el
   // backend). Se precargan los 3 por defecto, editables, y se pueden
@@ -50,6 +56,10 @@ export default function ConfiguracionScreen({ navigation }) {
   useEffect(() => {
     setMultaPerdidaTicket(sedeActiva ? String(sedeActiva.monto_multa_perdida_ticket ?? 0) : "");
   }, [sedeActiva?.id, sedeActiva?.monto_multa_perdida_ticket]);
+
+  useEffect(() => {
+    setCapacidadMaxima(sedeActiva?.capacidad_maxima != null ? String(sedeActiva.capacidad_maxima) : "");
+  }, [sedeActiva?.id, sedeActiva?.capacidad_maxima]);
 
   const [tipos, setTipos] = useState([]);
   const [editandoId, setEditandoId] = useState(null); // id del tipo que se esta editando, o null si es uno nuevo
@@ -229,12 +239,20 @@ export default function ConfiguracionScreen({ navigation }) {
       tiposParaEnviar.push({ nombre: t.nombre.trim(), tarifa_hora: hora, tarifa_fraccion: fraccion });
     }
 
+    let capacidad_maxima = null;
+    if (puestosNuevaSede.trim()) {
+      const n = parseInt(puestosNuevaSede, 10);
+      if (isNaN(n) || n <= 0) return mostrarAlerta("Los puestos totales deben ser un número mayor a 0 (o déjalo vacío si no aplica)");
+      capacidad_maxima = n;
+    }
+
     const eraLaPrimeraSede = sedes.length === 0;
     setCreandoSede(true);
     try {
-      const res = await api.post("/parqueaderos", { nombre: nombreSede.trim(), moneda: monedaNuevaSede, tipos: tiposParaEnviar });
+      const res = await api.post("/parqueaderos", { nombre: nombreSede.trim(), moneda: monedaNuevaSede, capacidad_maxima, tipos: tiposParaEnviar });
       setNombreSede("");
       setMonedaNuevaSede("USD");
+      setPuestosNuevaSede("");
       setTiposNuevaSede(TIPOS_DEFAULT.map(tipoStagedDesde));
       setMostrarFormularioSede(false);
       await cargarSedes();
@@ -252,6 +270,7 @@ export default function ConfiguracionScreen({ navigation }) {
     setMostrarFormularioSede(false);
     setNombreSede("");
     setMonedaNuevaSede("USD");
+    setPuestosNuevaSede("");
     setTiposNuevaSede(TIPOS_DEFAULT.map(tipoStagedDesde));
   }
 
@@ -282,6 +301,23 @@ export default function ConfiguracionScreen({ navigation }) {
       mostrarAlerta("Error", err.response?.data?.error || "No se pudo guardar la multa");
     } finally {
       setGuardandoMulta(false);
+    }
+  }
+
+  async function handleGuardarCapacidad() {
+    if (!sedeActiva) return;
+    const valor = parseInt(capacidadMaxima, 10);
+    if (isNaN(valor) || valor <= 0) return mostrarAlerta("Los puestos totales deben ser un número mayor a 0");
+
+    setGuardandoCapacidad(true);
+    try {
+      await api.patch(`/parqueaderos/${sedeActiva.id}/config`, { capacidad_maxima: valor });
+      await cargarSedes();
+      mostrarAlerta("Guardado", "Se actualizaron los puestos totales de la sede.");
+    } catch (err) {
+      mostrarAlerta("Error", err.response?.data?.error || "No se pudo guardar los puestos totales");
+    } finally {
+      setGuardandoCapacidad(false);
     }
   }
 
@@ -385,6 +421,15 @@ export default function ConfiguracionScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </View>
+
+      <Text style={styles.notaChica}>Puestos totales de la nueva sede (déjalo vacío si no quieres llevar el control):</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Ej: 30"
+        value={puestosNuevaSede}
+        onChangeText={setPuestosNuevaSede}
+        keyboardType="number-pad"
+      />
 
       <Text style={styles.notaChica}>Tipos de vehículo de la nueva sede (necesitas al menos 1):</Text>
       {tiposNuevaSede.map((t) => (
@@ -498,6 +543,22 @@ export default function ConfiguracionScreen({ navigation }) {
             />
             <TouchableOpacity style={styles.botonAgregar} onPress={handleGuardarMulta} disabled={guardandoMulta}>
               <Text style={styles.linkEditar}>{guardandoMulta ? "..." : "Guardar"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.notaChica, styles.espacioArriba]}>
+            Puestos totales de {sedeActiva.nombre} (para que el operador vea disponibilidad en tiempo real; vacío = sin límite configurado):
+          </Text>
+          <View style={styles.filaTipoStaged}>
+            <TextInput
+              style={[styles.input, styles.inputTarifaStaged]}
+              placeholder="Ej: 30"
+              value={capacidadMaxima}
+              onChangeText={setCapacidadMaxima}
+              keyboardType="number-pad"
+            />
+            <TouchableOpacity style={styles.botonAgregar} onPress={handleGuardarCapacidad} disabled={guardandoCapacidad}>
+              <Text style={styles.linkEditar}>{guardandoCapacidad ? "..." : "Guardar"}</Text>
             </TouchableOpacity>
           </View>
 
