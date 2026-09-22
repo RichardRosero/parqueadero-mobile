@@ -6,14 +6,16 @@ import { mostrarAlerta } from "../utils/alerta";
 
 export default function LoginGuardiaScreen({ navigation }) {
   const { loginGuardia } = useAuth();
+  const [codigoNegocio, setCodigoNegocio] = useState("");
   const [usuario, setUsuario] = useState("guardia1");
   const [password, setPassword] = useState("1234");
   const [cargando, setCargando] = useState(false);
 
   async function handleLogin() {
+    if (!codigoNegocio.trim()) return mostrarAlerta("Falta el código de negocio", "Pídeselo al administrador que te creó como operador.");
     setCargando(true);
     try {
-      await loginGuardia(usuario, password);
+      await loginGuardia(codigoNegocio.trim(), usuario, password);
     } catch (err) {
       mostrarAlerta("Error", err.response?.data?.error || "No se pudo iniciar sesion");
     } finally {
@@ -24,8 +26,15 @@ export default function LoginGuardiaScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Operador</Text>
-      <Text style={styles.nota}>Ingresa con el usuario y contraseña que te creó el administrador.</Text>
+      <Text style={styles.nota}>Ingresa con el código de negocio, usuario y contraseña que te dio el administrador.</Text>
 
+      <TextInput
+        style={styles.input}
+        placeholder="Código de negocio (ej. XYZ192)"
+        value={codigoNegocio}
+        onChangeText={(t) => setCodigoNegocio(t.toUpperCase())}
+        autoCapitalize="characters"
+      />
       <TextInput style={styles.input} placeholder="Usuario" value={usuario} onChangeText={setUsuario} autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
 

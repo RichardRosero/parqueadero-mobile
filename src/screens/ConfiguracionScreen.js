@@ -636,6 +636,15 @@ export default function ConfiguracionScreen({ navigation }) {
         registrar entradas/salidas, ver reportes y usar el botón de pánico en las sedes que le asignes.
       </Text>
 
+      {sesion?.codigoNegocio && (
+        <View style={styles.tarjetaCodigoNegocio}>
+          <Text style={styles.notaChica}>
+            Además de su usuario y contraseña, cada operador necesita este código para iniciar sesión — dáselo tú personalmente:
+          </Text>
+          <Text style={styles.codigoNegocio}>{sesion.codigoNegocio}</Text>
+        </View>
+      )}
+
       {operadores.length === 0 && <Text style={styles.nota}>Todavía no has creado ningún operador.</Text>}
 
       {operadores.map((op) => (
@@ -733,6 +742,8 @@ const styles = StyleSheet.create({
   nota: { color: "#666", marginBottom: 8 },
   notaChica: { color: "#666", fontSize: 13, marginBottom: 8 },
   notaAlerta: { color: "#B00020", marginBottom: 8 },
+  tarjetaCodigoNegocio: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 12, marginBottom: 16, alignItems: "center" },
+  codigoNegocio: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", letterSpacing: 2, marginTop: 4 },
   filaTipoStaged: { flexDirection: "row", gap: 6, alignItems: "center" },
   inputNombreStaged: { flex: 2 },
   inputTarifaStaged: { flex: 1 },

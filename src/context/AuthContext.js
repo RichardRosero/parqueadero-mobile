@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
 
   async function loginAdmin(email, password) {
     const res = await api.post("/auth/admin/login", { email, password });
-    const datos = await guardarSesion({ token: res.data.token, rol: "admin", nombre: res.data.negocio.nombre, parqueaderoId: null });
+    const datos = await guardarSesion({ token: res.data.token, rol: "admin", nombre: res.data.negocio.nombre, codigoNegocio: res.data.negocio.codigo, parqueaderoId: null });
     await cachearEstadoLicencia({ activa: true, fechaExpiracion: null });
     await cargarSedes(datos);
   }
@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
   // Google antes de confiar en el (ver routes/auth.js, /admin/google).
   async function loginAdminGoogle(idToken) {
     const res = await api.post("/auth/admin/google", { idToken });
-    const datos = await guardarSesion({ token: res.data.token, rol: "admin", nombre: res.data.negocio.nombre, parqueaderoId: null });
+    const datos = await guardarSesion({ token: res.data.token, rol: "admin", nombre: res.data.negocio.nombre, codigoNegocio: res.data.negocio.codigo, parqueaderoId: null });
     await cachearEstadoLicencia({ activa: true, fechaExpiracion: null });
     await cargarSedes(datos);
   }
@@ -97,8 +97,8 @@ export function AuthProvider({ children }) {
   // reutiliza la misma logica de "cargarSedes" del admin para resolver cual
   // sede queda seleccionada (automatica si es solo una, o a elegir si tiene
   // varias, ver el aviso de sede en DashboardScreen).
-  async function loginGuardia(usuario, password) {
-    const res = await api.post("/auth/guardia/login", { usuario, password });
+  async function loginGuardia(codigoNegocio, usuario, password) {
+    const res = await api.post("/auth/guardia/login", { codigoNegocio, usuario, password });
     const datos = await guardarSesion({ token: res.data.token, rol: "guardia", nombre: res.data.guardia.nombre, parqueaderoId: null });
     await cargarSedes(datos);
   }
