@@ -3,7 +3,7 @@
 // agregando mas pantallas con esta misma estructura cuando se necesiten.
 
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Clipboard } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { mostrarAlerta, confirmarAccion } from "../utils/alerta";
@@ -87,6 +87,23 @@ export default function ConfiguracionScreen({ navigation }) {
   const [guardandoOperador, setGuardandoOperador] = useState(false);
   const [eliminandoOperadorId, setEliminandoOperadorId] = useState(null);
 
+  // Credenciales del ultimo operador creado (o al que se le acaba de
+  // cambiar la contraseña), para que el admin las pueda copiar y pasarlas
+  // por WhatsApp/SMS/lo que sea. Solo existen en este momento porque la
+  // contraseña nunca se guarda en texto plano (queda hasheada) — no hay
+  // forma de "recuperarla" despues, por eso se muestra justo aqui.
+  const [credencialesParaCopiar, setCredencialesParaCopiar] = useState(null); // { usuario, password }
+
+  function textoCredenciales({ usuario, password }) {
+    return `Código de negocio: ${sesion?.codigoNegocio || "-"}\nUsuario: ${usuario}\nContraseña: ${password}`;
+  }
+
+  function handleCopiarCredenciales() {
+    if (!credencialesParaCopiar) return;
+    Clipboard.setString(textoCredenciales(credencialesParaCopiar));
+    mostrarAlerta("Copiado", "Ya puedes pegarlo (WhatsApp, SMS, etc.) para enviárselo al operador.");
+  }
+
   const cargarTipos = useCallback(async () => {
     if (!sesion?.parqueaderoId) return setTipos([]);
     try {
@@ -132,10 +149,10 @@ export default function ConfiguracionScreen({ navigation }) {
         password: passwordOperador,
         sedeIds: sedeIdsOperador,
       });
+      setCredencialesParaCopiar({ usuario: usuarioOperador.trim(), password: passwordOperador });
       setNombreOperador(""); setUsuarioOperador(""); setPasswordOperador(""); setSedeIdsOperador([]);
       setMostrarFormularioOperador(false);
       await cargarOperadores();
-      mostrarAlerta("Operador creado", "Ya puede iniciar sesión con su usuario y contraseña.");
     } catch (err) {
       mostrarAlerta("Error", err.response?.data?.error || "No se pudo crear el operador");
     } finally {
@@ -175,7 +192,13 @@ export default function ConfiguracionScreen({ navigation }) {
         password: passwordEdicionOperador || undefined,
         sedeIds: sedeIdsEdicionOperador,
       });
-      mostrarAlerta("Actualizado", "Los datos del operador se guardaron.");
+      if (passwordEdicionOperador) {
+        // Solo si de verdad se cambio la contraseña hay algo nuevo que
+        // copiar — si se dejo vacia (sin cambiarla), no se sabe cual es.
+        setCredencialesParaCopiar({ usuario: usuarioEdicionOperador.trim(), password: passwordEdicionOperador });
+      } else {
+        mostrarAlerta("Actualizado", "Los datos del operador se guardaron.");
+      }
       handleCancelarEdicionOperador();
       await cargarOperadores();
     } catch (err) {
@@ -645,6 +668,23 @@ export default function ConfiguracionScreen({ navigation }) {
         </View>
       )}
 
+      {credencialesParaCopiar && (
+        <View style={styles.tarjetaCredenciales}>
+          <Text style={styles.notaChica}>
+            Datos de acceso de "{credencialesParaCopiar.usuario}" — cópialos y envíaselos por el medio que prefieras:
+          </Text>
+          <Text style={styles.textoCredenciales}>{textoCredenciales(credencialesParaCopiar)}</Text>
+          <View style={styles.filaBotonesCredenciales}>
+            <TouchableOpacity style={styles.botonCopiar} onPress={handleCopiarCredenciales}>
+              <Text style={styles.botonCopiarTexto}>Copiar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.botonSecundario} onPress={() => setCredencialesParaCopiar(null)}>
+              <Text style={styles.botonSecundarioTexto}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {operadores.length === 0 && <Text style={styles.nota}>Todavía no has creado ningún operador.</Text>}
 
       {operadores.map((op) => (
@@ -744,6 +784,11 @@ const styles = StyleSheet.create({
   notaAlerta: { color: "#B00020", marginBottom: 8 },
   tarjetaCodigoNegocio: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 12, marginBottom: 16, alignItems: "center" },
   codigoNegocio: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", letterSpacing: 2, marginTop: 4 },
+  tarjetaCredenciales: { backgroundColor: "#E8F5E9", borderRadius: 8, padding: 12, marginBottom: 16 },
+  textoCredenciales: { fontFamily: "monospace", fontSize: 14, color: "#1B5E20", backgroundColor: "#fff", borderRadius: 6, padding: 10, marginTop: 8, lineHeight: 20 },
+  filaBotonesCredenciales: { flexDirection: "row", gap: 8, marginTop: 10 },
+  botonCopiar: { flex: 1, backgroundColor: "#1F4E8C", borderRadius: 8, padding: 12, alignItems: "center" },
+  botonCopiarTexto: { color: "#fff", fontWeight: "bold" },
   filaTipoStaged: { flexDirection: "row", gap: 6, alignItems: "center" },
   inputNombreStaged: { flex: 2 },
   inputTarifaStaged: { flex: 1 },
