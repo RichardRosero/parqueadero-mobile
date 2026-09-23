@@ -15,7 +15,13 @@ import PanicoScreen from "../screens/PanicoScreen";
 
 const Stack = createNativeStackNavigator();
 
-const opcionesHeader = { headerStyle: { backgroundColor: "#1F4E8C" }, headerTintColor: "#fff" };
+// animation: "fade" — la pantalla se desvanece/aparece en vez de deslizar.
+// Aplica a TODAS las pantallas de la app (una sola linea, screenOptions es
+// global del Stack.Navigator). Otras opciones ya probadas: "slide_from_right"
+// (deslizar de derecha a izquierda), "none" (sin animacion, como estaba
+// originalmente) — ver conversacion para la lista completa si se quiere
+// cambiar de nuevo.
+const opcionesHeader = { headerStyle: { backgroundColor: "#1F4E8C" }, headerTintColor: "#fff", animation: "fade" };
 
 export default function AppNavigator() {
   const { sesion, cargando, sedes, sedesListas } = useAuth();

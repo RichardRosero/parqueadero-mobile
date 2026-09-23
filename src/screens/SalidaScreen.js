@@ -1,11 +1,13 @@
 // screens/SalidaScreen.js — seccion 7: registro de salida
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from "react-native";
 import api from "../services/api";
 import { mostrarAlerta } from "../utils/alerta";
 import { simboloMoneda } from "../utils/moneda";
 import { useAuth } from "../context/AuthContext";
 import { imprimirTicketSalida } from "../services/impresora";
+import SelectorPais from "../components/SelectorPais";
+import { normalizarNumeroLocal } from "../utils/paises";
 
 const METODOS = [
   { id: "impresion", label: "Imprimir ticket", costo: "Gratis" },
@@ -31,8 +33,14 @@ export default function SalidaScreen({ navigation }) {
   const [saliendo, setSaliendo] = useState(false);
   const [salidaConfirmada, setSalidaConfirmada] = useState(false);
   const [metodo, setMetodo] = useState("ninguno");
+  const [codigoPais, setCodigoPais] = useState("+593");
   const [destino, setDestino] = useState("");
   const [qrTelegram, setQrTelegram] = useState(null);
+
+  useEffect(() => {
+    const sede = sedes.find((s) => s.id === sesion?.parqueaderoId);
+    if (sede?.codigo_region) setCodigoPais(sede.codigo_region);
+  }, [sesion?.parqueaderoId, sedes]);
 
   async function handleCalcular() {
     if (!placa) return mostrarAlerta("Falta la placa");
@@ -66,7 +74,7 @@ export default function SalidaScreen({ navigation }) {
         placa,
         codigo,
         metodo_notificacion_ticket: metodo,
-        destino_notificacion: destino,
+        destino_notificacion: (metodo === "whatsapp" || metodo === "sms") ? `${codigoPais}${normalizarNumeroLocal(destino)}` : destino,
       });
       setResultado(res.data);
       setSalidaConfirmada(true);
@@ -149,7 +157,13 @@ export default function SalidaScreen({ navigation }) {
           ))}
 
           {(metodo === "whatsapp" || metodo === "sms") && (
-            <TextInput style={styles.input} placeholder="Número del cliente (con código de país)" value={destino} onChangeText={setDestino} keyboardType="phone-pad" />
+            <>
+              <View style={styles.filaTelefono}>
+                <SelectorPais value={codigoPais} onChange={setCodigoPais} />
+                <TextInput style={[styles.input, styles.inputTelefono]} placeholder="Número del cliente" value={destino} onChangeText={setDestino} keyboardType="phone-pad" />
+              </View>
+              <Text style={styles.notaTelefono}>Puedes escribirlo con o sin el 0 inicial, se ajusta solo.</Text>
+            </>
           )}
 
           <TouchableOpacity style={styles.botonSalir} onPress={handleSalir} disabled={saliendo}>
@@ -194,6 +208,9 @@ const styles = StyleSheet.create({
   opcion: { flexDirection: "row", justifyContent: "space-between", padding: 12, borderWidth: 1, borderColor: "#ddd", borderRadius: 8, marginBottom: 8 },
   opcionSeleccionada: { borderColor: "#1F4E8C", backgroundColor: "#DCE8F7" },
   costo: { color: "#666", fontSize: 12 },
+  filaTelefono: { flexDirection: "row" },
+  inputTelefono: { flex: 1, height: 50, marginBottom: 0 },
+  notaTelefono: { color: "#999", fontSize: 12, marginTop: 4, marginBottom: 12 },
   bloqueQr: { alignItems: "center", marginTop: 20 },
   imagenQr: { width: 200, height: 200, marginVertical: 16 },
 });

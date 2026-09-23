@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import BotonAnimado from "../components/BotonAnimado";
 
 export default function DashboardScreen({ navigation }) {
   const { sesion, sedes, logout, licenciaValida, seleccionarSede } = useAuth();
@@ -110,11 +111,11 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.etiquetaOcupacion}>Total</Text>
           </View>
           <View style={styles.filaOcupacion}>
-            <Text style={styles.valorOcupacion}>{ocupacion.ocupados}</Text>
+            <Text style={[styles.valorOcupacion, styles.valorOcupado]}>{ocupacion.ocupados}</Text>
             <Text style={styles.etiquetaOcupacion}>Ocupados</Text>
           </View>
           <View style={styles.filaOcupacion}>
-            <Text style={styles.valorOcupacion}>{ocupacion.disponibles ?? "—"}</Text>
+            <Text style={[styles.valorOcupacion, styles.valorDisponible]}>{ocupacion.disponibles ?? "—"}</Text>
             <Text style={styles.etiquetaOcupacion}>Disponibles</Text>
           </View>
         </View>
@@ -126,34 +127,34 @@ export default function DashboardScreen({ navigation }) {
       )}
 
       <View style={styles.accionesFila}>
-        <TouchableOpacity style={[styles.botonAccion, !sesion?.parqueaderoId && styles.botonDeshabilitado]} disabled={!sesion?.parqueaderoId} onPress={() => navigation.navigate("Entrada")}>
+        <BotonAnimado style={[styles.botonAccion, !sesion?.parqueaderoId && styles.botonDeshabilitado]} disabled={!sesion?.parqueaderoId} onPress={() => navigation.navigate("Entrada")}>
           <Text style={styles.botonAccionTexto}>Registrar entrada</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.botonAccion} onPress={() => navigation.navigate("Salida")}>
+        </BotonAnimado>
+        <BotonAnimado style={styles.botonAccion} onPress={() => navigation.navigate("Salida")}>
           <Text style={styles.botonAccionTexto}>Registrar salida</Text>
-        </TouchableOpacity>
+        </BotonAnimado>
       </View>
 
-      <TouchableOpacity style={[styles.botonPanico, !sesion?.parqueaderoId && styles.botonDeshabilitado]} disabled={!sesion?.parqueaderoId} onPress={() => navigation.navigate("Panico")}>
+      <BotonAnimado style={[styles.botonPanico, !sesion?.parqueaderoId && styles.botonDeshabilitado]} disabled={!sesion?.parqueaderoId} onPress={() => navigation.navigate("Panico")}>
         <Text style={styles.botonAccionTexto}>⚠ Botón de pánico</Text>
-      </TouchableOpacity>
+      </BotonAnimado>
 
       {esAdmin && (
         <View style={styles.accionesFila}>
-          <TouchableOpacity style={styles.botonSecundario} onPress={() => navigation.navigate("Configuracion")}>
+          <BotonAnimado style={styles.botonSecundario} onPress={() => navigation.navigate("Configuracion")}>
             <Text style={styles.botonSecundarioTexto}>Configuración</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.botonSecundario} onPress={() => navigation.navigate("Reportes")}>
+          </BotonAnimado>
+          <BotonAnimado style={styles.botonSecundario} onPress={() => navigation.navigate("Reportes")}>
             <Text style={styles.botonSecundarioTexto}>Reportes</Text>
-          </TouchableOpacity>
+          </BotonAnimado>
         </View>
       )}
 
       {!esAdmin && (
         <View style={styles.accionesFila}>
-          <TouchableOpacity style={styles.botonSecundario} onPress={() => navigation.navigate("Reportes")}>
+          <BotonAnimado style={styles.botonSecundario} onPress={() => navigation.navigate("Reportes")}>
             <Text style={styles.botonSecundarioTexto}>Reportes</Text>
-          </TouchableOpacity>
+          </BotonAnimado>
         </View>
       )}
 
@@ -177,10 +178,10 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  saludo: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", marginBottom: 16 },
+  container: { flex: 1, padding: 20, paddingTop: 28, backgroundColor: "#fff" },
+  saludo: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C", marginBottom: 24 },
   tituloAlerta: { fontSize: 20, fontWeight: "bold", color: "#B00020" },
-  sedeAviso: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 12, marginBottom: 16 },
+  sedeAviso: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 14, marginBottom: 24 },
   sedeTexto: { color: "#1F4E8C", fontWeight: "bold", marginBottom: 4 },
   linkSede: { color: "#1F4E8C", fontWeight: "bold" },
   filaChipsSede: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
@@ -188,19 +189,21 @@ const styles = StyleSheet.create({
   chipSedeSeleccionado: { backgroundColor: "#1F4E8C" },
   chipSedeTexto: { color: "#1F4E8C" },
   chipSedeTextoSeleccionado: { color: "#fff", fontWeight: "bold" },
-  tarjetaOcupacion: { flexDirection: "row", backgroundColor: "#F2F2F2", borderRadius: 8, marginBottom: 4, paddingVertical: 12 },
+  tarjetaOcupacion: { flexDirection: "row", backgroundColor: "#F2F2F2", borderRadius: 8, marginBottom: 24, paddingVertical: 16 },
   filaOcupacion: { flex: 1, alignItems: "center" },
-  valorOcupacion: { fontSize: 20, fontWeight: "bold", color: "#1F4E8C" },
-  etiquetaOcupacion: { color: "#666", fontSize: 12 },
-  notaOcupacion: { color: "#999", fontSize: 12, textAlign: "center", marginBottom: 12 },
-  accionesFila: { flexDirection: "row", gap: 12, marginBottom: 12 },
-  botonAccion: { flex: 1, backgroundColor: "#1F4E8C", borderRadius: 8, padding: 16, alignItems: "center" },
+  valorOcupacion: { fontSize: 22, fontWeight: "bold", color: "#1F4E8C" },
+  valorOcupado: { color: "#B00020" },
+  valorDisponible: { color: "#2E7D32" },
+  etiquetaOcupacion: { color: "#666", fontSize: 12, marginTop: 2 },
+  notaOcupacion: { color: "#999", fontSize: 12, textAlign: "center", marginBottom: 20 },
+  accionesFila: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  botonAccion: { flex: 1, backgroundColor: "#1F4E8C", borderRadius: 8, padding: 16, alignItems: "center", elevation: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5 },
   botonDeshabilitado: { opacity: 0.4 },
-  botonPanico: { backgroundColor: "#B00020", borderRadius: 8, padding: 14, alignItems: "center", marginBottom: 20 },
+  botonPanico: { backgroundColor: "#B00020", borderRadius: 8, padding: 14, alignItems: "center", marginBottom: 28, elevation: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5 },
   botonAccionTexto: { color: "#fff", fontWeight: "bold" },
-  botonSecundario: { flex: 1, borderWidth: 1, borderColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center" },
+  botonSecundario: { flex: 1, borderWidth: 1, borderColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center", backgroundColor: "#fff", elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
   botonSecundarioTexto: { color: "#1F4E8C", fontWeight: "bold" },
-  subtitulo: { fontWeight: "bold", marginBottom: 8, color: "#333" },
+  subtitulo: { fontWeight: "bold", marginBottom: 8, marginTop: 4, color: "#333" },
   filaVencimiento: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderColor: "#eee" },
   placa: { fontWeight: "bold" },
   nota: { color: "#666" },

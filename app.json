@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.rr93.parqueadero",
-      "versionCode": 2
+      "versionCode": 3
     },
     "extra": {
       "eas": {

@@ -7,6 +7,8 @@ import api from "../services/api";
 import { mostrarAlerta } from "../utils/alerta";
 import { simboloMoneda } from "../utils/moneda";
 import { imprimirTicket } from "../services/impresora";
+import SelectorPais from "../components/SelectorPais";
+import { normalizarNumeroLocal } from "../utils/paises";
 
 const METODOS = [
   { id: "impresion", label: "Imprimir ticket", costo: "Gratis" },
@@ -22,8 +24,17 @@ export default function EntradaScreen({ navigation }) {
   const [tipos, setTipos] = useState([]);
   const [tipoVehiculoId, setTipoVehiculoId] = useState("");
   const [metodo, setMetodo] = useState("impresion");
+  const [codigoPais, setCodigoPais] = useState("+593");
   const [destino, setDestino] = useState("");
   const [cargando, setCargando] = useState(false);
+
+  // El codigo de pais arranca en el que tiene configurado la sede
+  // (parqueaderos.codigo_region) — el operador lo puede cambiar si el
+  // cliente es de otro pais.
+  useEffect(() => {
+    const sede = sedes.find((s) => s.id === sesion?.parqueaderoId);
+    if (sede?.codigo_region) setCodigoPais(sede.codigo_region);
+  }, [sesion?.parqueaderoId, sedes]);
 
   // Cuando el metodo es Telegram, en vez de volver atras de una se muestra
   // este QR para que el cliente lo escanee (ver services/notificaciones/telegram.js
@@ -56,7 +67,7 @@ export default function EntradaScreen({ navigation }) {
           placa,
           tipo_vehiculo_id: tipoVehiculoId || null,
           metodo_notificacion: metodo,
-          destino_notificacion: destino,
+          destino_notificacion: (metodo === "whatsapp" || metodo === "sms") ? `${codigoPais}${normalizarNumeroLocal(destino)}` : destino,
         },
       });
 
@@ -160,7 +171,13 @@ export default function EntradaScreen({ navigation }) {
       )}
 
       {(metodo === "whatsapp" || metodo === "sms") && (
-        <TextInput style={styles.input} placeholder="Número del cliente (con código de país)" value={destino} onChangeText={setDestino} keyboardType="phone-pad" />
+        <>
+          <View style={styles.filaTelefono}>
+            <SelectorPais value={codigoPais} onChange={setCodigoPais} />
+            <TextInput style={[styles.input, styles.inputTelefono]} placeholder="Número del cliente" value={destino} onChangeText={setDestino} keyboardType="phone-pad" />
+          </View>
+          <Text style={styles.notaTelefono}>Puedes escribirlo con o sin el 0 inicial, se ajusta solo.</Text>
+        </>
       )}
 
       <TouchableOpacity style={styles.boton} onPress={handleRegistrar} disabled={cargando}>
@@ -183,5 +200,8 @@ const styles = StyleSheet.create({
   boton: { backgroundColor: "#1F4E8C", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 16, minWidth: 160 },
   botonTexto: { color: "#fff", fontWeight: "bold" },
   bloqueImpresora: { backgroundColor: "#DCE8F7", borderRadius: 8, padding: 12, marginBottom: 12 },
+  filaTelefono: { flexDirection: "row" },
+  inputTelefono: { flex: 1, height: 50, marginBottom: 0 },
+  notaTelefono: { color: "#999", fontSize: 12, marginTop: 4, marginBottom: 12 },
   imagenQr: { width: 220, height: 220, marginVertical: 20 },
 });
